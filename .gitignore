@@ -1,0 +1,5 @@
+# 秘密情報は絶対にコミットしない
+*-firebase-adminsdk-*.json
+*service-account*.json
+.env
+.env.local

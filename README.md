@@ -77,9 +77,47 @@ npm install
 npm run dev
 ```
 
-## Lint
+## Lint / Test
 
 ```bash
 cd backend && make lint   # golangci-lint (Docker経由)
+cd backend && make test
 cd frontend && npm run lint
 ```
+
+## MVPの実装状況
+
+グループ作成 → 招待コード参加 → 好き嫌い登録 → 店舗提案の縦のフローは一通り動く。
+ただし**提案の絞り込みロジックは学習用の穴埋め課題**として仮実装のまま残してある。
+
+### 🎓 穴埋め課題(backend/internal/domain/service/)
+
+| 課題 | ファイル | 内容 |
+| --- | --- | --- |
+| 課題1 | `preference_aggregator.go` | 好き嫌いを個人と紐づかない制約条件に集約 |
+| 課題2 | `restaurant_filter.go` | 制約条件で店舗候補を絞り込み |
+| 課題3 | `compromise_ranker.go` | 全員OKが0件のときの妥協案ランキング |
+
+- 各ファイルの `【課題N】` コメントに仕様と考えるポイントを記載
+- 同ディレクトリの `*_test.go` に期待仕様のテストがある。`t.Skip` の行を消して `go test ./...` が通れば完成
+- 現在は仮実装(絞り込まない)なので、嫌いなものを登録しても全店舗が「全員OK」と表示される
+
+### 仮実装(将来差し替え)
+
+- **認証**: `X-Member-ID` ヘッダーの仮認証 → Firebase Auth(issue #8)。差し替えポイントは `backend/internal/adapter/handler/auth.go` と `frontend/src/lib/member-store.ts`
+- **店舗検索**: 固定データのモックGateway(`backend/internal/adapter/gateway/mock_restaurant_gateway.go`) → 外部グルメAPI(issue #5)
+
+### APIエンドポイント
+
+| Method | Path | 説明 |
+| --- | --- | --- |
+| POST | `/api/members` | メンバー登録(認証不要) |
+| GET | `/api/me` | 自分の情報 |
+| GET/PUT | `/api/me/preferences` | 自分の好き嫌い(本人のみ) |
+| POST | `/api/groups` | グループ作成 |
+| POST | `/api/groups/join` | 招待コードで参加 |
+| GET | `/api/groups` | 所属グループ一覧 |
+| GET | `/api/groups/:id` | グループ詳細 |
+| GET | `/api/groups/:id/suggestions?area=` | 店舗提案 |
+
+認証が必要なAPIは `X-Member-ID: <id>` ヘッダーを付ける(MVPの仮認証)。
