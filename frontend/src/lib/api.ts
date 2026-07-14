@@ -1,4 +1,4 @@
-import type { Candidate, Group, Member, Preference } from "@/types";
+import type { Candidate, Group, Member, Message, Preference } from "@/types";
 import { currentIdToken } from "@/lib/firebase";
 import { loadMember } from "@/lib/member-store";
 
@@ -68,4 +68,61 @@ export const api = {
     request<Candidate[]>(
       `/api/groups/${groupId}/suggestions?area=${encodeURIComponent(area)}`,
     ),
+
+  listMessages: (groupId: number, afterId = 0) =>
+    request<Message[]>(`/api/groups/${groupId}/messages?after_id=${afterId}`),
+
+  postMessage: (groupId: number, text: string) =>
+    request<Message>(`/api/groups/${groupId}/messages`, {
+      method: "POST",
+      body: JSON.stringify({ text }),
+    }),
+
+  // AI検索(SSE)。EventSourceは認証ヘッダーを積めないのでfetchのストリームで読む。
+  // chunkイベントをonChunkに流し、doneで保存済みの(質問, 回答)を返す。
+  aiSearch: async (
+    groupId: number,
+    q: string,
+    onChunk: (text: string) => void,
+  ): Promise<{ question: Message; answer: Message }> => {
+    const res = await fetch(
+      `${BASE_URL}/api/groups/${groupId}/ai-search?q=${encodeURIComponent(q)}`,
+      { headers: await authHeaders() },
+    );
+    if (!res.ok || !res.body) {
+      throw new Error(`AI検索に失敗しました (${res.status})`);
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    let result: { question: Message; answer: Message } | null = null;
+
+    const handleEvent = (raw: string) => {
+      let event = "";
+      let data = "";
+      for (const line of raw.split("\n")) {
+        if (line.startsWith("event: ")) event = line.slice(7).trim();
+        else if (line.startsWith("data: ")) data += line.slice(6);
+      }
+      if (!event || !data) return;
+      if (event === "chunk") onChunk(JSON.parse(data) as string);
+      else if (event === "done")
+        result = JSON.parse(data) as { question: Message; answer: Message };
+      else if (event === "error")
+        throw new Error((JSON.parse(data) as { error: string }).error);
+    };
+
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let idx;
+      while ((idx = buf.indexOf("\n\n")) >= 0) {
+        handleEvent(buf.slice(0, idx));
+        buf = buf.slice(idx + 2);
+      }
+    }
+    if (!result) throw new Error("AI検索が中断されました");
+    return result;
+  },
 };

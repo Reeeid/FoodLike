@@ -45,11 +45,19 @@ func main() {
 		service.NewCompromiseRanker(),
 	)
 
+	// チャットは仮実装: メッセージはインメモリ(再起動で消える)、
+	// AI検索は候補からテンプレート文を生成するフェイク。
+	// 本実装(GORM/LLM)への差し替えはポートの実装を入れ替えるだけ。
+	messageRepo := adapterrepo.NewInMemoryMessageRepository()
+	aiResponder := adaptergw.NewFakeAIResponder()
+	chatUC := usecase.NewChatUsecase(groupRepo, messageRepo, aiResponder, suggestionUC)
+
 	r := router.New(conn, router.Handlers{
 		Member:     handler.NewMemberHandler(memberUC),
 		Group:      handler.NewGroupHandler(groupUC),
 		Preference: handler.NewPreferenceHandler(prefUC),
 		Suggestion: handler.NewSuggestionHandler(suggestionUC),
+		Chat:       handler.NewChatHandler(chatUC),
 	}, newAuthMiddleware(memberUC))
 
 	port := os.Getenv("PORT")

@@ -15,6 +15,7 @@ type Handlers struct {
 	Group      *handler.GroupHandler
 	Preference *handler.PreferenceHandler
 	Suggestion *handler.SuggestionHandler
+	Chat       *handler.ChatHandler
 }
 
 // New はルーティングを組み立てる。認証方式(Firebase/モック)はmain側で
@@ -40,6 +41,9 @@ func New(db *gorm.DB, h Handlers, authMiddleware gin.HandlerFunc) *gin.Engine {
 		authed.GET("/groups", h.Group.List)
 		authed.GET("/groups/:id", h.Group.Get)
 		authed.GET("/groups/:id/suggestions", h.Suggestion.Suggest)
+		authed.GET("/groups/:id/messages", h.Chat.List)
+		authed.POST("/groups/:id/messages", h.Chat.Post)
+		authed.GET("/groups/:id/ai-search", h.Chat.AISearch)
 	}
 
 	return r

@@ -19,6 +19,17 @@ export type Preference = {
   value: string;
 };
 
+export type MessageRole = "member" | "ai";
+
+export type Message = {
+  id: number;
+  role: MessageRole;
+  member_id: number;
+  member_name: string;
+  text: string;
+  created_at: string;
+};
+
 export type Candidate = {
   id: string;
   name: string;

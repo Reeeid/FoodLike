@@ -1,17 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { InviteModal } from "@/components/invite-modal";
-import type {
-  Candidate,
-  Group,
-  Preference,
-  PreferenceCategory,
-} from "@/types";
+import { ChatCard } from "@/components/chat-card";
+import type { Candidate, Group } from "@/types";
 
 export default function GroupPage() {
   const params = useParams<{ id: string }>();
@@ -78,100 +74,9 @@ export default function GroupPage() {
         <InviteModal group={group} onClose={() => setInviteOpen(false)} />
       )}
 
-      <PreferenceCard />
+      <ChatCard groupId={groupId} myMemberId={session.member?.id ?? 0} />
       <SuggestionCard groupId={groupId} />
     </>
-  );
-}
-
-function PreferenceCard() {
-  const [prefs, setPrefs] = useState<Preference[]>([]);
-  const [value, setValue] = useState("");
-  const [category, setCategory] = useState<PreferenceCategory>("genre");
-  const [error, setError] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    api
-      .listMyPreferences()
-      .then(setPrefs)
-      .catch((e) =>
-        setError(e instanceof Error ? e.message : "取得に失敗しました"),
-      );
-  }, []);
-
-  const save = useCallback(async (next: Preference[]) => {
-    setSaving(true);
-    setError("");
-    try {
-      await api.saveMyPreferences(next);
-      setPrefs(next);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "保存に失敗しました");
-    } finally {
-      setSaving(false);
-    }
-  }, []);
-
-  const add = () => {
-    const v = value.trim();
-    if (!v) return;
-    if (prefs.some((p) => p.value === v && p.category === category)) {
-      setValue("");
-      return;
-    }
-    save([...prefs, { kind: "dislike", category, value: v }]);
-    setValue("");
-  };
-
-  const remove = (target: Preference) => {
-    save(
-      prefs.filter(
-        (p) => !(p.value === target.value && p.category === target.category),
-      ),
-    );
-  };
-
-  return (
-    <div className="card">
-      <h2 className="card-title">🤫 あなたの苦手なもの</h2>
-      <p className="section-note">
-        ここに登録した内容は他のメンバーには一切見えません。提案の絞り込みにだけ使われます。
-      </p>
-      <div className="field-row">
-        <select
-          value={category}
-          onChange={(e) => setCategory(e.target.value as PreferenceCategory)}
-          style={{ maxWidth: "8rem" }}
-        >
-          <option value="genre">ジャンル</option>
-          <option value="ingredient">食材</option>
-        </select>
-        <input
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && add()}
-          placeholder={category === "genre" ? "例: 辛い物" : "例: エビ"}
-          maxLength={64}
-        />
-        <button className="btn" onClick={add} disabled={saving || !value.trim()}>
-          追加
-        </button>
-      </div>
-      {prefs.length > 0 && (
-        <div className="chips" style={{ marginTop: "0.75rem" }}>
-          {prefs.map((p) => (
-            <span key={`${p.category}:${p.value}`} className="chip">
-              {p.category === "genre" ? "🍽" : "🥕"} {p.value}
-              <button onClick={() => remove(p)} aria-label="削除">
-                ×
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
-      {error && <p className="error">{error}</p>}
-    </div>
   );
 }
 
@@ -197,7 +102,11 @@ function SuggestionCard({ groupId }: { groupId: number }) {
     <div className="card">
       <h2 className="card-title">🍜 お店を提案してもらう</h2>
       <p className="section-note">
-        メンバー全員の苦手なものにこっそり配慮したお店を探します。
+        メンバー全員の苦手なものにこっそり配慮したお店を探します。あなたの苦手なものは
+        <Link href="/profile" className="inline-link">
+          プロフィール
+        </Link>
+        で登録できます。
       </p>
       <div className="field-row">
         <input

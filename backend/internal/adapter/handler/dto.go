@@ -1,6 +1,10 @@
 package handler
 
-import "foodlike-backend/internal/domain/model"
+import (
+	"time"
+
+	"foodlike-backend/internal/domain/model"
+)
 
 // DTO層。ドメインモデルをそのままJSONにせず、外に出す形をここで明示的に決める。
 // 特にPreferenceは本人向けレスポンス以外に絶対に含めないこと。
@@ -31,6 +35,26 @@ type candidateResponse struct {
 	Budget         int      `json:"budget"`
 	MatchedAll     bool     `json:"matched_all"`
 	ViolationCount int      `json:"violation_count"`
+}
+
+type messageResponse struct {
+	ID         uint   `json:"id"`
+	Role       string `json:"role"`
+	MemberID   uint   `json:"member_id"`
+	MemberName string `json:"member_name"`
+	Text       string `json:"text"`
+	CreatedAt  string `json:"created_at"`
+}
+
+func toMessageResponse(m model.Message) messageResponse {
+	return messageResponse{
+		ID:         m.ID,
+		Role:       string(m.Role),
+		MemberID:   m.MemberID,
+		MemberName: m.MemberName,
+		Text:       m.Text,
+		CreatedAt:  m.CreatedAt.Format(time.RFC3339),
+	}
 }
 
 func toMemberResponse(m model.Member) memberResponse {

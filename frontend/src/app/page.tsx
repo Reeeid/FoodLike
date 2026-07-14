@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { saveMember } from "@/lib/member-store";
+import { getLastRead } from "@/lib/unread";
 import { useSession } from "@/lib/session";
 import { LoginScreen } from "./login-screen";
 import type { Group, Member } from "@/types";
@@ -37,9 +38,14 @@ export default function HomePage() {
           <span>
             👤 {member.name} <span className="muted">(ID: {member.id})</span>
           </span>
-          <button className="btn btn-ghost btn-sm" onClick={session.signOut}>
-            {session.firebaseEnabled ? "ログアウト" : "切り替え"}
-          </button>
+          <div className="field-row" style={{ width: "auto" }}>
+            <Link href="/profile" className="btn btn-ghost btn-sm">
+              プロフィール
+            </Link>
+            <button className="btn btn-ghost btn-sm" onClick={session.signOut}>
+              {session.firebaseEnabled ? "ログアウト" : "切り替え"}
+            </button>
+          </div>
         </div>
       </div>
       <GroupSection />
@@ -98,6 +104,28 @@ function GroupSection() {
   const [inviteCode, setInviteCode] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  // アプリ内通知: グループごとの未読メッセージ数(既読位置より新しい件数)
+  const [unread, setUnread] = useState<Record<number, number>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const entries = await Promise.all(
+        groups.map(async (g) => {
+          try {
+            const news = await api.listMessages(g.id, getLastRead(g.id));
+            return [g.id, news.length] as const;
+          } catch {
+            return [g.id, 0] as const;
+          }
+        }),
+      );
+      if (!cancelled) setUnread(Object.fromEntries(entries));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [groups]);
 
   const refresh = useCallback(async () => {
     try {
@@ -159,7 +187,17 @@ function GroupSection() {
             {groups.map((g) => (
               <Link key={g.id} href={`/groups/${g.id}`} className="list-item-link">
                 <div className="stack">
-                  <strong>{g.name}</strong>
+                  <strong>
+                    {g.name}
+                    {(unread[g.id] ?? 0) > 0 && (
+                      <span
+                        className="badge badge-warn"
+                        style={{ marginLeft: "0.5rem" }}
+                      >
+                        💬 未読{unread[g.id]}件
+                      </span>
+                    )}
+                  </strong>
                   <span className="muted">{g.members.length}人のメンバー</span>
                 </div>
               </Link>
