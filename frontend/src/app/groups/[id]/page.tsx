@@ -108,17 +108,17 @@ function SuggestionCard({ groupId }: { groupId: number }) {
         </Link>
         で登録できます。
       </p>
-      <div className="field-row">
-        <input
-          value={area}
-          onChange={(e) => setArea(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && suggest()}
-          placeholder="エリア(例: 新宿)※空欄で全エリア"
-        />
-        <button className="btn" onClick={suggest} disabled={busy}>
-          {busy ? "検索中…" : "提案"}
-        </button>
-      </div>
+      <input
+        value={area}
+        onChange={(e) => setArea(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && suggest()}
+        placeholder="エリア(例: 新宿)※空欄で全エリア"
+      />
+      {/* 最重要CTA: フィッツの法則に基づき、幅いっぱい・高さ大で
+          カード下部(親指ゾーン)に配置し、迷わず押せるようにする */}
+      <button className="btn btn-cta" onClick={suggest} disabled={busy}>
+        {busy ? "検索中…" : "🔍 お店を提案してもらう"}
+      </button>
 
       {candidates && (
         <div className="list" style={{ marginTop: "1rem" }}>

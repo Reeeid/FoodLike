@@ -47,6 +47,8 @@ export function ChatCard({
   useEffect(() => {
     let cancelled = false;
     const tick = async () => {
+      // 非表示タブでは無駄打ちしない(バッテリー/通信/無料枠の節約)
+      if (document.hidden) return;
       try {
         const news = await api.listMessages(groupId, lastIdRef.current);
         if (!cancelled) append(news);

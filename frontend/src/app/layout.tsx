@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { NotificationBell } from "@/components/notification-bell";
+import { SiteFooter } from "@/components/site-footer";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,9 +33,11 @@ export default function RootLayout({
             <Link href="/" className="logo">
               🍴 FoodLike
             </Link>
+            <NotificationBell />
           </div>
         </header>
         <main className="container">{children}</main>
+        <SiteFooter />
       </body>
     </html>
   );
