@@ -16,6 +16,7 @@ import (
 //
 // 個人のPreferenceがこのusecaseより外(handler/DTO)に出ることはない。
 type SuggestionUsecase struct {
+	groups     repository.GroupRepository
 	prefs      repository.PreferenceRepository
 	restGw     gateway.RestaurantGateway
 	aggregator service.PreferenceAggregator
@@ -24,6 +25,7 @@ type SuggestionUsecase struct {
 }
 
 func NewSuggestionUsecase(
+	groups repository.GroupRepository,
 	prefs repository.PreferenceRepository,
 	restGw gateway.RestaurantGateway,
 	aggregator service.PreferenceAggregator,
@@ -31,6 +33,7 @@ func NewSuggestionUsecase(
 	ranker service.CompromiseRanker,
 ) *SuggestionUsecase {
 	return &SuggestionUsecase{
+		groups:     groups,
 		prefs:      prefs,
 		restGw:     restGw,
 		aggregator: aggregator,
@@ -39,7 +42,17 @@ func NewSuggestionUsecase(
 	}
 }
 
-func (u *SuggestionUsecase) Suggest(ctx context.Context, groupID uint, area string) ([]model.Candidate, error) {
+// Suggest は提案を返す。認可(BOLA対策)として、呼び出し主が対象グループの
+// メンバーであることを先に検査し、非メンバーには ErrNotMember を返す。
+func (u *SuggestionUsecase) Suggest(ctx context.Context, memberID, groupID uint, area string) ([]model.Candidate, error) {
+	g, err := u.groups.FindByID(ctx, groupID)
+	if err != nil {
+		return nil, err
+	}
+	if !g.HasMember(memberID) {
+		return nil, ErrNotMember
+	}
+
 	groupPrefs, err := u.prefs.ListByGroup(ctx, groupID)
 	if err != nil {
 		return nil, err

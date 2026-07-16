@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -25,8 +26,13 @@ func (h *SuggestionHandler) Suggest(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid group id"})
 		return
 	}
-	candidates, err := h.suggestions.Suggest(c.Request.Context(), uint(id), c.Query("area"))
+	candidates, err := h.suggestions.Suggest(c.Request.Context(), currentMemberID(c), uint(id), c.Query("area"))
 	if err != nil {
+		// 非メンバーはグループの存在を漏らさないため404に統一。
+		if errors.Is(err, usecase.ErrNotMember) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "group not found"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to suggest restaurants"})
 		return
 	}

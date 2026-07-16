@@ -75,7 +75,7 @@ func (u *ChatUsecase) AISearch(
 
 	// エリア抽出はまだしない(全件から苦手なもの考慮で絞り込み)。
 	// LLM実装に差し替えるとき、クエリ解釈もそちらに寄せる。
-	candidates, err := u.suggest.Suggest(ctx, groupID, "")
+	candidates, err := u.suggest.Suggest(ctx, memberID, groupID, "")
 	if err != nil {
 		return question, model.Message{}, err
 	}

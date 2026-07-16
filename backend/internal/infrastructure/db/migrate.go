@@ -14,5 +14,6 @@ func Migrate(conn *gorm.DB) error {
 		&repository.MemberRecord{},
 		&repository.GroupRecord{},
 		&repository.PreferenceRecord{},
+		&repository.MessageRecord{},
 	)
 }

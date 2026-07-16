@@ -38,6 +38,7 @@ func main() {
 	groupUC := usecase.NewGroupUsecase(groupRepo)
 	prefUC := usecase.NewPreferenceUsecase(prefRepo)
 	suggestionUC := usecase.NewSuggestionUsecase(
+		groupRepo,
 		prefRepo,
 		restaurantGw,
 		service.NewPreferenceAggregator(),
@@ -48,7 +49,7 @@ func main() {
 	// チャットは仮実装: メッセージはインメモリ(再起動で消える)、
 	// AI検索は候補からテンプレート文を生成するフェイク。
 	// 本実装(GORM/LLM)への差し替えはポートの実装を入れ替えるだけ。
-	messageRepo := adapterrepo.NewInMemoryMessageRepository()
+	messageRepo := adapterrepo.NewMessageRepository(conn)
 	aiResponder := adaptergw.NewFakeAIResponder()
 	chatUC := usecase.NewChatUsecase(groupRepo, messageRepo, aiResponder, suggestionUC)
 
