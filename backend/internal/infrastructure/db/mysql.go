@@ -17,6 +17,9 @@ func NewMySQLConnection() (*gorm.DB, error) {
 		os.Getenv("DB_PORT"),
 		os.Getenv("DB_NAME"),
 	)
+	if os.Getenv("DB_TLS") == "true" {
+		dsn += "&tls=true"
+	}
 
 	return gorm.Open(mysql.Open(dsn), &gorm.Config{})
 }
