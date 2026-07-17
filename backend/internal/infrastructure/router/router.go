@@ -11,17 +11,27 @@ import (
 )
 
 type Handlers struct {
-	Member     *handler.MemberHandler
-	Group      *handler.GroupHandler
-	Preference *handler.PreferenceHandler
-	Suggestion *handler.SuggestionHandler
-	Chat       *handler.ChatHandler
+	Member       *handler.MemberHandler
+	Group        *handler.GroupHandler
+	Preference   *handler.PreferenceHandler
+	Suggestion   *handler.SuggestionHandler
+	Chat         *handler.ChatHandler
+	SearchOption *handler.SearchOptionHandler
 }
 
 // New はルーティングを組み立てる。認証方式(Firebase/モック)はmain側で
 // 決めてauthMiddlewareとして注入する。
 func New(db *gorm.DB, h Handlers, authMiddleware gin.HandlerFunc) *gin.Engine {
 	r := gin.Default()
+
+	// どのプロキシのX-Forwarded-Forも信頼しない。
+	// Cloud Runの前段はGoogleのフロントエンドで信頼するIPレンジを列挙できず、
+	// 全信頼(既定)のままだとクライアントが自分でX-Forwarded-Forを送ってIPを詐称できる。
+	// 本アプリはClientIPを認可・制限に使わない(Ginのアクセスログのみ)ため、
+	// ログのIPが接続元になる代わりに詐称を不可能にする方を取る。
+	// 将来IPベースのレート制限を入れるならここの再検討が要る。
+	_ = r.SetTrustedProxies(nil) // nil指定ではエラーは返らない
+
 	r.Use(corsMiddleware())
 
 	r.GET("/health", handler.NewHealthHandler(db))
@@ -40,6 +50,7 @@ func New(db *gorm.DB, h Handlers, authMiddleware gin.HandlerFunc) *gin.Engine {
 		authed.POST("/groups/join", h.Group.Join)
 		authed.GET("/groups", h.Group.List)
 		authed.GET("/groups/:id", h.Group.Get)
+		authed.GET("/search-options", h.SearchOption.List)
 		authed.GET("/groups/:id/suggestions", h.Suggestion.Suggest)
 		authed.GET("/groups/:id/messages", h.Chat.List)
 		authed.POST("/groups/:id/messages", h.Chat.Post)
