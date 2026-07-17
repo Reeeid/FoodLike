@@ -278,6 +278,44 @@ select:focus {
   border-radius: 10px;
 }
 
+/* ---- react-select(エリア検索)をアプリのテーマに合わせる ---- */
+.rs__control {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+  border-radius: 8px !important;
+  min-height: 42px;
+  box-shadow: none !important;
+}
+
+.rs__control--is-focused {
+  border-color: var(--primary) !important;
+}
+
+.rs__menu {
+  background: var(--surface) !important;
+  border: 1px solid var(--border);
+  z-index: 30 !important;
+}
+
+.rs__option {
+  background: var(--surface) !important;
+  color: var(--text) !important;
+}
+
+.rs__option--is-focused {
+  background: var(--primary-soft) !important;
+}
+
+.rs__single-value,
+.rs__input-container,
+.rs__input {
+  color: var(--text) !important;
+}
+
+.rs__placeholder {
+  color: var(--text-muted) !important;
+}
+
 .list {
   display: flex;
   flex-direction: column;
@@ -484,6 +522,51 @@ select:focus {
 .bubble-text {
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+/* AI回答のmarkdown描画。markdownが改行を解釈するのでpre-wrapは外し、
+   吹き出し内に収まるよう各ブロックの余白を詰める。 */
+.bubble-md {
+  white-space: normal;
+}
+
+.bubble-md > :first-child {
+  margin-top: 0;
+}
+
+.bubble-md > :last-child {
+  margin-bottom: 0;
+}
+
+.bubble-md p,
+.bubble-md ul,
+.bubble-md ol {
+  margin: 0.4rem 0;
+}
+
+.bubble-md ul,
+.bubble-md ol {
+  padding-left: 1.2rem;
+}
+
+.bubble-md li {
+  margin: 0.15rem 0;
+}
+
+.bubble-md strong {
+  font-weight: 600;
+}
+
+.bubble-md a {
+  color: var(--primary);
+  word-break: break-all;
+}
+
+.bubble-md code {
+  background: var(--surface);
+  border-radius: 4px;
+  padding: 0 0.2rem;
+  font-size: 0.85em;
 }
 
 /* ---- 招待モーダル ---- */

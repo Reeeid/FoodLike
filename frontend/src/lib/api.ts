@@ -1,4 +1,12 @@
-import type { Candidate, Group, Member, Message, Preference } from "@/types";
+import type {
+  Candidate,
+  Group,
+  Member,
+  Message,
+  Preference,
+  SearchCriteria,
+  SearchOptions,
+} from "@/types";
 import { currentIdToken } from "@/lib/firebase";
 import { loadMember } from "@/lib/member-store";
 
@@ -64,10 +72,18 @@ export const api = {
       body: JSON.stringify({ preferences }),
     }),
 
-  suggest: (groupId: number, area: string) =>
-    request<Candidate[]>(
-      `/api/groups/${groupId}/suggestions?area=${encodeURIComponent(area)}`,
-    ),
+  getSearchOptions: () => request<SearchOptions>("/api/search-options"),
+
+  suggest: (groupId: number, criteria: SearchCriteria) => {
+    const q = new URLSearchParams();
+    if (criteria.large_area) q.set("large_area", criteria.large_area);
+    if (criteria.middle_area) q.set("middle_area", criteria.middle_area);
+    if (criteria.small_area) q.set("small_area", criteria.small_area);
+    if (criteria.budget) q.set("budget", criteria.budget);
+    return request<Candidate[]>(
+      `/api/groups/${groupId}/suggestions?${q.toString()}`,
+    );
+  },
 
   listMessages: (groupId: number, afterId = 0) =>
     request<Message[]>(`/api/groups/${groupId}/messages?after_id=${afterId}`),

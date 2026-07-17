@@ -30,6 +30,33 @@ export type Message = {
   created_at: string;
 };
 
+export type AreaEntry = {
+  large_code: string;
+  large_name: string;
+  middle_code: string;
+  middle_name: string;
+  small_code: string;
+  small_name: string;
+};
+
+export type BudgetOption = {
+  code: string;
+  name: string;
+};
+
+export type SearchOptions = {
+  areas: AreaEntry[];
+  budgets: BudgetOption[];
+};
+
+// 店舗検索の絞り込み(すべて任意)。エリアはHotPepperのエリアコード、Budgetは予算コード。
+export type SearchCriteria = {
+  large_area?: string;
+  middle_area?: string;
+  small_area?: string;
+  budget?: string;
+};
+
 export type Candidate = {
   id: string;
   name: string;

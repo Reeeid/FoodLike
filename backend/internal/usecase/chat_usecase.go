@@ -73,14 +73,15 @@ func (u *ChatUsecase) AISearch(
 		return model.Message{}, model.Message{}, err
 	}
 
-	// エリア抽出はまだしない(全件から苦手なもの考慮で絞り込み)。
-	// LLM実装に差し替えるとき、クエリ解釈もそちらに寄せる。
-	candidates, err := u.suggest.Suggest(ctx, memberID, groupID, "")
+	// AIチャット検索はGemini自身のGoogle検索に任せる。こちらは全員の苦手を
+	// 集約した匿名の制約だけを渡す(外部グルメAPIは叩かない)。エリア等の解釈は
+	// クエリ文としてGemini側に委ねる。
+	constraints, err := u.suggest.Constraints(ctx, memberID, groupID)
 	if err != nil {
 		return question, model.Message{}, err
 	}
 
-	full, err := u.ai.Respond(ctx, query, candidates, onChunk)
+	full, err := u.ai.Respond(ctx, query, constraints, onChunk)
 	if err != nil {
 		return question, model.Message{}, err
 	}

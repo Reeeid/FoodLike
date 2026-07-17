@@ -10,5 +10,5 @@ import (
 // ホットペッパー/Google Places等への乗り換え・併用を想定してinterface化している。
 // 実装の差し替えは adapter/gateway 側だけで完結すること(issue #5)。
 type RestaurantGateway interface {
-	Search(ctx context.Context, area string) ([]model.Restaurant, error)
+	Search(ctx context.Context, criteria model.SearchCriteria) ([]model.Restaurant, error)
 }

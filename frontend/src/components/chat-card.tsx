@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Markdown from "react-markdown";
 import { api } from "@/lib/api";
 import { setLastRead } from "@/lib/unread";
 import type { Message } from "@/types";
@@ -122,9 +123,11 @@ export function ChatCard({
           <div className="bubble-row">
             <div className="bubble bubble-ai">
               <span className="bubble-name">🤖 AI</span>
-              <span className="bubble-text">
-                {aiText === "" ? "考え中…" : aiText}
-              </span>
+              {aiText === "" ? (
+                <span className="bubble-text">考え中…</span>
+              ) : (
+                <AiText text={aiText} />
+              )}
             </div>
           </div>
         )}
@@ -165,8 +168,23 @@ function ChatBubble({ message, mine }: { message: Message; mine: boolean }) {
             {message.role === "ai" ? "🤖 AI" : `👤 ${message.member_name}`}
           </span>
         )}
-        <span className="bubble-text">{message.text}</span>
+        {message.role === "ai" ? (
+          <AiText text={message.text} />
+        ) : (
+          <span className="bubble-text">{message.text}</span>
+        )}
       </div>
+    </div>
+  );
+}
+
+// AIの回答はmarkdown記法(**太字**・箇条書き)で返るので描画する。
+// メンバーの発言は素のテキストのまま扱う(意図しない装飾と描画面の攻撃を避ける)。
+// react-markdownは生HTMLを描画せず、危険なURLも既定で無害化する。
+function AiText({ text }: { text: string }) {
+  return (
+    <div className="bubble-text bubble-md">
+      <Markdown>{text}</Markdown>
     </div>
   );
 }
