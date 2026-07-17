@@ -5,12 +5,8 @@ RUN npm ci
 
 FROM node:22-alpine AS builder
 WORKDIR /app
-# NEXT_PUBLIC_*はビルド時にJSへ焼き込まれるため、composeのbuild.argsから受け取る
-ARG NEXT_PUBLIC_API_BASE_URL
-ARG NEXT_PUBLIC_FIREBASE_API_KEY
-ARG NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
-ARG NEXT_PUBLIC_FIREBASE_PROJECT_ID
-ARG NEXT_PUBLIC_FIREBASE_APP_ID
+# NEXT_PUBLIC_*はビルド時にJSへ焼き込まれる公開値。frontend/.env.local を next build が読む
+# (.dockerignore で .env.local だけ除外解除済み)。npm run dev と同じファイルで一元管理。
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build

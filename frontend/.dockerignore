@@ -2,4 +2,6 @@ node_modules
 .next
 .git
 .env*
+# NEXT_PUBLIC_* はビルド時にJSへ焼き込む公開値。next buildが .env.local を読めるよう除外を解除
+!.env.local
 npm-debug.log*
