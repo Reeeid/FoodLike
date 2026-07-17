@@ -1,123 +1,113 @@
 # FoodLike
 
-家族や友人との食事の場で、各メンバーの「好き嫌い」を考慮した外食先を提案するアプリ。
+**グループ全員の「苦手なもの」を本人以外に明かさないまま、みんなが食べられる外食先を提案するアプリ。**
 
-好き嫌いは本人にとって言い出しづらい潜在的な情報であるため、直接聞き出さずに配慮できる仕組みを提供する。グループ内メンバー全員の好み(食材・ジャンルなど)を、本人以外には非公開のまま集約し、エリア×ジャンル×予算で外食先候補を検索・提案する。
+「パクチーが苦手」「生魚がダメ」——こうした好き嫌いは本人にとって言い出しづらい情報です。FoodLike は各メンバーの苦手（ジャンル・食材）を**個人と紐づかない形に集約**したうえで外食先を検索し、「誰が何を苦手か」を誰にも見せずに全員が安心できるお店を提案します。
 
-## 主要機能(予定)
+> プライバシーが機能そのものであるアプリ。「集約して個人情報を潰す」「LLMに具体名を出させない」といった配慮を、設計と実装の両面で担保しています。
 
-- グループ／メンバー管理(QRコード・IDによる追加)
-- 好き嫌い情報の個人単位登録(本人以外には非公開)
-- 外部グルメAPIを用いた外食先(店舗)の検索・提案
-- 全員OKな店が無い場合の妥協案ランキング
-- (MVP後)チャット形式(WebSocket)での好み抽出・店舗絞り込み
+---
+
+## 主な機能
+
+- **グループ／メンバー管理** — QRコード・招待コードで参加
+- **苦手なものの登録**（本人のみ編集可・他人には非公開）— ジャンル／食材レベル
+- **外食先の提案** — ホットペッパー グルメサーチAPIでエリア×予算から検索し、全員の苦手を避けて絞り込み
+- **妥協案ランキング** — 全員OKな店が0件のとき、苦手への抵触が少ない順に提示
+- **グループチャット＋AI検索** — チャットから自然文で相談。AIが実在するお店を検索して、みんなの苦手を避けたおすすめを提案
+- **通知** — 未読バッジ／通知ベル（可視時のみポーリング）
 
 ## 技術スタック
 
-### 決定済み
+| 領域                     | 技術                                                                |
+| ------------------------ | ------------------------------------------------------------------- |
+| フロントエンド           | Next.js 16 (App Router) / React 19 / TypeScript                     |
+| バックエンド             | Go 1.25 / Gin / GORM                                                |
+| アーキテクチャ (backend) | Clean Architecture + Hexagonal (Ports & Adapters)                   |
+| 認証                     | Firebase Authentication                                             |
+| 本番DB                   | TiDB Cloud Serverless (MySQL互換)                                   |
+| ローカル/テストDB        | MySQL 8 (docker compose)                                            |
+| 外部グルメAPI            | ホットペッパー グルメサーチAPI                                      |
+| AIチャット検索           | Google Gemini (2.5 Flash Lite) + Tavily Search API                  |
+| デプロイ                 | フロント: Vercel ／ バック: Google Cloud Run ／ DB: TiDB Serverless |
 
-| 領域 | 技術 |
-| --- | --- |
-| フロントエンド | Next.js (App Router, TypeScript) |
-| バックエンド | Go / Gin / GORM |
-| アーキテクチャ(backend) | Clean Architecture + Hexagonal(Ports & Adapters) |
-| 本番DB | TiDB Cloud Starter(MySQL互換) |
-| ローカル/テストDB | MySQL 8 (docker-compose) |
-| 認証 | Firebase Auth |
-| フロントホスティング | Firebase Hosting(PWA) |
-| バックエンドデプロイ先 | Cloud Run |
+## 設計のポイント
 
-### 検討中(未決定)
+**プライバシーを確率ではなくコードで保証**
+個人の苦手は `PreferenceAggregator` で「誰のか分からない制約集合」に潰してからしか扱わない。AIチャットでは、LLMへの指示（「品目名を書くな」）は確率的で保証にならないため、**生成文から苦手品目名を決定的に伏せる検閲層**（`redact.go`）を後段に置いている。少人数グループでは「集合 − 自分の苦手 = 相方の苦手」と逆算できてしまうため、集約後であっても具体名は出さない。
 
-- フロントエンド状態管理(候補: Tanstack Query)
-- PWA対応の可否
-- デザイン方針
-- 外部グルメAPI選定(ホットペッパー / Google Places 等)
-- 好き嫌い情報の粒度(食材レベル／ジャンルレベル／自由記述)
-- メンバーの集合場所最適化ロジック
+**認証と認可の分離**
+認証（誰か）はミドルウェア、認可（このグループのメンバーか＝BOLA対策）はusecase内で行い、非メンバーには404を返す。usecase/domain層は `gin.Context` を一切知らない。
 
-### backendの設計方針
+**差し替え可能なポート設計**
+外部依存（グルメAPI・AI・Web検索・認証・永続化）はすべてポート（インターフェース）の背後に置き、APIキーの有無で実装を切り替える。例：`HOTPEPPER_API_KEY` 未設定ならモック店舗、`GEMINI_API_KEY` 未設定なら定型文へフォールバック。テスト時はフェイクを注入。
 
-- ドメインサービスは単一責務で分割(`PreferenceAggregator` / `RestaurantFilter` / `CompromiseRanker` 等)
-- `Repository`(DB永続化)と`Gateway`(外部API呼び出し)をポートとして分離
-- Ginは`adapter/handler`・`infrastructure/router`層のみに閉じ込め、usecase/domain層はフレームワークに依存しない
-- プライバシー設計: 個人の好み詳細はドメインサービス内で集合演算まで潰し、DTO/APIレスポンス層・LLMには一切渡さない
+**AIチャット検索のコスト設計（¥0で実検索）**
+GeminiのGoogle検索グラウンディングは課金枠のため、**実店舗の根拠は無料枠のTavily検索で取得 → その結果をGeminiに渡して制約推論＋日本語生成**、という役割分担にした。Tavily（事実）とGemini（推論）を分けることで、無料枠のまま「実在する店を、みんなの苦手を避けて提案」を成立させている。
 
-## 構成
+**リアルタイムはWebSocketではなくポーリング**
+Cloud Runのスケールが厳しいので3秒間のポーリングで月の無料枠に収まるようにしている
 
-- `backend/` — Go (Gin + GORM) / Clean Architecture + Hexagonal(Ports & Adapters)
-- `frontend/` — Next.js (App Router, TypeScript)
+## ディレクトリ構成
 
-## ローカル起動(Docker)
+```
+backend/    Go (Gin + GORM) / Clean Architecture + Hexagonal
+  ├ internal/domain      ドメインモデル・サービス（集約/絞り込み/ランキング）
+  ├ internal/usecase     ユースケース（認可・プライバシー境界）
+  ├ internal/port        ポート（Repository / Gateway インターフェース）
+  ├ internal/adapter     アダプタ（handler / gateway / repository 実装）
+  └ internal/infrastructure  DB接続・ルーティング・Firebase
+frontend/   Next.js (App Router, TypeScript)
+```
+
+## ローカル起動（Docker）
 
 ```bash
 docker compose up --build
 ```
 
 - frontend: http://localhost:3000
-- backend: http://localhost:8080/health
-- mysql: localhost:3306 (テスト用、本番はTiDB Cloudを想定)
+- backend: http://localhost:8080
+- mysql: localhost:3306（ローカル用。本番はTiDB Serverless）
 
-## ローカル起動(個別)
+環境変数はバック／フロントで分離：`backend/.env`（compose の `env_file` で注入）と `frontend/.env.local`（`next build` が読む）。各 `*.example` をコピーして値を設定する。APIキー未設定でもモック／フォールバックで動作する。
 
-### backend
-
-```bash
-cd backend
-cp .env.example .env
-go run ./cmd/api
-```
-
-### frontend
+## ローカル起動（個別）
 
 ```bash
-cd frontend
-cp .env.example .env
-npm install
-npm run dev
+# backend
+cd backend && cp .env.example .env && go run ./cmd/api
+
+# frontend
+cd frontend && cp .env.local.example .env.local && npm install && npm run dev
 ```
 
 ## Lint / Test
 
 ```bash
-cd backend && make lint   # golangci-lint (Docker経由)
-cd backend && make test
+cd backend && make lint      # golangci-lint
+cd backend && make test      # go test ./...
 cd frontend && npm run lint
 ```
 
-## MVPの実装状況
+## デプロイ
 
-グループ作成 → 招待コード参加 → 好き嫌い登録 → 店舗提案の縦のフローは一通り動く。
-ただし**提案の絞り込みロジックは学習用の穴埋め課題**として仮実装のまま残してある。
+Vercel（フロント）+ Cloud Run（バック）+ TiDB Serverless（DB）の無料枠構成。手順は [docs/deploy.md](docs/deploy.md)。
 
-### 🎓 穴埋め課題(backend/internal/domain/service/)
+## API エンドポイント
 
-| 課題 | ファイル | 内容 |
-| --- | --- | --- |
-| 課題1 | `preference_aggregator.go` | 好き嫌いを個人と紐づかない制約条件に集約 |
-| 課題2 | `restaurant_filter.go` | 制約条件で店舗候補を絞り込み |
-| 課題3 | `compromise_ranker.go` | 全員OKが0件のときの妥協案ランキング |
+認証が必要なAPIは `Authorization: Bearer <Firebase IDトークン>`（モック認証時は `X-Member-ID: <id>`）を付ける。
 
-- 各ファイルの `【課題N】` コメントに仕様と考えるポイントを記載
-- 同ディレクトリの `*_test.go` に期待仕様のテストがある。`t.Skip` の行を消して `go test ./...` が通れば完成
-- 現在は仮実装(絞り込まない)なので、嫌いなものを登録しても全店舗が「全員OK」と表示される
-
-### 仮実装(将来差し替え)
-
-- **認証**: `X-Member-ID` ヘッダーの仮認証 → Firebase Auth(issue #8)。差し替えポイントは `backend/internal/adapter/handler/auth.go` と `frontend/src/lib/member-store.ts`
-- **店舗検索**: 固定データのモックGateway(`backend/internal/adapter/gateway/mock_restaurant_gateway.go`) → 外部グルメAPI(issue #5)
-
-### APIエンドポイント
-
-| Method | Path | 説明 |
-| --- | --- | --- |
-| POST | `/api/members` | メンバー登録(認証不要) |
-| GET | `/api/me` | 自分の情報 |
-| GET/PUT | `/api/me/preferences` | 自分の好き嫌い(本人のみ) |
-| POST | `/api/groups` | グループ作成 |
-| POST | `/api/groups/join` | 招待コードで参加 |
-| GET | `/api/groups` | 所属グループ一覧 |
-| GET | `/api/groups/:id` | グループ詳細 |
-| GET | `/api/groups/:id/suggestions?area=` | 店舗提案 |
-
-認証が必要なAPIは `X-Member-ID: <id>` ヘッダーを付ける(MVPの仮認証)。
+| Method   | Path                          | 説明                                             |
+| -------- | ----------------------------- | ------------------------------------------------ |
+| POST     | `/api/members`                | メンバー登録（認証不要）                         |
+| GET      | `/api/me`                     | 自分の情報                                       |
+| GET/PUT  | `/api/me/preferences`         | 自分の苦手なもの（本人のみ）                     |
+| POST     | `/api/groups`                 | グループ作成                                     |
+| POST     | `/api/groups/join`            | 招待コードで参加                                 |
+| GET      | `/api/groups`                 | 所属グループ一覧                                 |
+| GET      | `/api/groups/:id`             | グループ詳細                                     |
+| GET      | `/api/search-options`         | エリア／予算マスタ                               |
+| GET      | `/api/groups/:id/suggestions` | 店舗提案（`middle_area`・`budget` で絞り込み可） |
+| GET/POST | `/api/groups/:id/messages`    | チャットメッセージ                               |
+| GET      | `/api/groups/:id/ai-search`   | AIチャット検索（SSEストリーミング）              |
