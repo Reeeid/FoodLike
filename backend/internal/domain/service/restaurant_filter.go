@@ -13,9 +13,10 @@ func NewRestaurantFilter() RestaurantFilter {
 // 【課題2】Filter を実装せよ
 //
 // 仕様:
-//   - Restaurant.Genres のいずれかが Constraints.ExcludedGenres に
-//     含まれる店舗を除外し、残った店舗だけを返す
-//   - ExcludedIngredients はMVPでは使わない(店舗情報に食材が無いため)
+//   - 「ジャンルで弾く」: Restaurant.Genres のいずれかが ExcludedGenres に
+//     含まれる店舗を除外
+//   - 「食材で弾く」: Restaurant.Ingredients のいずれかが ExcludedIngredients に
+//     含まれる店舗を除外(店舗が食材情報を持つ場合のみ有効)
 //   - 制約が空なら全店舗をそのまま返す
 //   - 入力スライスを破壊(並び替え・書き換え)しないこと
 //

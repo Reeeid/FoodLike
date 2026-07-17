@@ -44,7 +44,7 @@ func NewSuggestionUsecase(
 
 // Suggest は提案を返す。認可(BOLA対策)として、呼び出し主が対象グループの
 // メンバーであることを先に検査し、非メンバーには ErrNotMember を返す。
-func (u *SuggestionUsecase) Suggest(ctx context.Context, memberID, groupID uint, area string) ([]model.Candidate, error) {
+func (u *SuggestionUsecase) Suggest(ctx context.Context, memberID, groupID uint, criteria model.SearchCriteria) ([]model.Candidate, error) {
 	g, err := u.groups.FindByID(ctx, groupID)
 	if err != nil {
 		return nil, err
@@ -61,7 +61,7 @@ func (u *SuggestionUsecase) Suggest(ctx context.Context, memberID, groupID uint,
 	// ここで個人との対応関係が失われる。以降は集合の制約条件だけを扱う。
 	constraints := u.aggregator.Aggregate(groupPrefs)
 
-	restaurants, err := u.restGw.Search(ctx, area)
+	restaurants, err := u.restGw.Search(ctx, criteria)
 	if err != nil {
 		return nil, err
 	}
@@ -77,4 +77,24 @@ func (u *SuggestionUsecase) Suggest(ctx context.Context, memberID, groupID uint,
 
 	// 全員OKな店が0件 → 妥協案ランキング
 	return u.ranker.Rank(restaurants, constraints), nil
+}
+
+// Constraints はグループ全員の好き嫌いを集約した匿名の制約だけを返す。
+// 外部グルメAPIは叩かない。AIチャット検索(Gemini)へ渡す制約の取得に使う。
+// BOLA対策として呼び出し主のメンバーシップを先に検査する。
+func (u *SuggestionUsecase) Constraints(ctx context.Context, memberID, groupID uint) (model.Constraints, error) {
+	g, err := u.groups.FindByID(ctx, groupID)
+	if err != nil {
+		return model.Constraints{}, err
+	}
+	if !g.HasMember(memberID) {
+		return model.Constraints{}, ErrNotMember
+	}
+
+	groupPrefs, err := u.prefs.ListByGroup(ctx, groupID)
+	if err != nil {
+		return model.Constraints{}, err
+	}
+	// 個人との対応関係を潰した集合だけを返す(LLMに渡してよい形)。
+	return u.aggregator.Aggregate(groupPrefs), nil
 }

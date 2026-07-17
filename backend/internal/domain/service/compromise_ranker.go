@@ -43,11 +43,20 @@ func (r CompromiseRanker) Rank(restaurants []model.Restaurant, c model.Constrain
 	return candidates
 }
 
+// countViolations は店舗の制約違反数を数える。
+// 「ジャンルで弾く」と「食材で弾く」を明確に分けて集計する。
 func countViolations(rest model.Restaurant, c model.Constraints) int {
 	violationCount := 0
-	// Count genre violations
+	// ジャンルで弾く: 実グルメAPIも提供できる粒度。
 	for _, genre := range rest.Genres {
 		if _, ok := c.ExcludedGenres[genre]; ok {
+			violationCount++
+		}
+	}
+	// 食材で弾く: 店舗が食材情報を持つ場合のみ有効。実APIはrest.Ingredientsが
+	// 空になるため、ここは自然にno-op(＝実データでは食材弾きが効かない)。
+	for _, ingredient := range rest.Ingredients {
+		if _, ok := c.ExcludedIngredients[ingredient]; ok {
 			violationCount++
 		}
 	}

@@ -11,6 +11,7 @@ import (
 	"foodlike-backend/internal/adapter/handler"
 	adapterrepo "foodlike-backend/internal/adapter/repository"
 	"foodlike-backend/internal/domain/service"
+	"foodlike-backend/internal/port/gateway"
 	"foodlike-backend/internal/infrastructure/db"
 	"foodlike-backend/internal/infrastructure/firebaseauth"
 	"foodlike-backend/internal/infrastructure/router"
@@ -31,8 +32,19 @@ func main() {
 	groupRepo := adapterrepo.NewGroupRepository(conn)
 	prefRepo := adapterrepo.NewPreferenceRepository(conn)
 
-	// TODO(issue #5): 外部グルメAPI選定後、実APIのGateway実装に差し替える。
+	// 外部グルメAPI: HOTPEPPER_API_KEY があればホットペッパー実装、無ければモック。
+	// APIエラーは握りつぶさずhandlerで500として表に出す(silent fallbackはしない)。
+	// エリア/予算マスタも同じキーで取得する(キー無しなら空=絞り込み無効)。
 	restaurantGw := adaptergw.NewMockRestaurantGateway()
+	searchOptionGw := adaptergw.NewNullSearchOptionGateway()
+	if key := os.Getenv("HOTPEPPER_API_KEY"); key != "" {
+		hp := adaptergw.NewHotPepperRestaurantGateway(key)
+		restaurantGw = hp
+		searchOptionGw = hp
+		log.Println("using HotPepper restaurant gateway")
+	} else {
+		log.Println("WARN: HOTPEPPER_API_KEY not set; using mock restaurant gateway")
+	}
 
 	memberUC := usecase.NewMemberUsecase(memberRepo)
 	groupUC := usecase.NewGroupUsecase(groupRepo)
@@ -46,19 +58,47 @@ func main() {
 		service.NewCompromiseRanker(),
 	)
 
-	// チャットは仮実装: メッセージはインメモリ(再起動で消える)、
-	// AI検索は候補からテンプレート文を生成するフェイク。
-	// 本実装(GORM/LLM)への差し替えはポートの実装を入れ替えるだけ。
+	searchOptionUC := usecase.NewSearchOptionUsecase(searchOptionGw)
+
+	// チャットのメッセージはGORMで永続化。AI検索の回答生成はAIResponderポート。
+	// GEMINI_API_KEY があればGemini実装、無ければ定型文フェイク。
+	// Geminiは失敗時に定型文へ自動フォールバックするのでチャットは止まらない。
 	messageRepo := adapterrepo.NewMessageRepository(conn)
-	aiResponder := adaptergw.NewFakeAIResponder()
+	var aiResponder gateway.AIResponder = adaptergw.NewFakeAIResponder()
+	if key := os.Getenv("GEMINI_API_KEY"); key != "" {
+		// 実在店舗の根拠の取り方は2択。TAVILY_API_KEY があれば無料枠のTavily検索を
+		// 前段に挟み、無ければ GEMINI_GROUNDING(既定ON)でGeminiのGoogle検索に任せる。
+		var searcher gateway.WebSearcher
+		grounding := os.Getenv("GEMINI_GROUNDING") != "false"
+		if tavilyKey := os.Getenv("TAVILY_API_KEY"); tavilyKey != "" {
+			searcher = adaptergw.NewTavilyWebSearcher(tavilyKey)
+			grounding = false // Tavilyで根拠を取るのでGoogle検索(課金枠)は使わない
+			log.Println("using Tavily web searcher for AI chat search")
+		}
+		g, err := adaptergw.NewGeminiResponder(context.Background(), adaptergw.GeminiConfig{
+			APIKey:    key,
+			Model:     os.Getenv("GEMINI_MODEL"),
+			Grounding: grounding,
+			Searcher:  searcher,
+			Fallback:  aiResponder,
+		})
+		if err != nil {
+			log.Fatalf("failed to init Gemini responder: %v", err)
+		}
+		aiResponder = g
+		log.Printf("using Gemini AI responder (grounding=%v, tavily=%v)", grounding, searcher != nil)
+	} else {
+		log.Println("WARN: GEMINI_API_KEY not set; using template (fake) AI responder")
+	}
 	chatUC := usecase.NewChatUsecase(groupRepo, messageRepo, aiResponder, suggestionUC)
 
 	r := router.New(conn, router.Handlers{
-		Member:     handler.NewMemberHandler(memberUC),
-		Group:      handler.NewGroupHandler(groupUC),
-		Preference: handler.NewPreferenceHandler(prefUC),
-		Suggestion: handler.NewSuggestionHandler(suggestionUC),
-		Chat:       handler.NewChatHandler(chatUC),
+		Member:       handler.NewMemberHandler(memberUC),
+		Group:        handler.NewGroupHandler(groupUC),
+		Preference:   handler.NewPreferenceHandler(prefUC),
+		Suggestion:   handler.NewSuggestionHandler(suggestionUC),
+		Chat:         handler.NewChatHandler(chatUC),
+		SearchOption: handler.NewSearchOptionHandler(searchOptionUC),
 	}, newAuthMiddleware(memberUC))
 
 	port := os.Getenv("PORT")
