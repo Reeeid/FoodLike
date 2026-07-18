@@ -5,6 +5,7 @@ go 1.25.4
 require (
 	firebase.google.com/go/v4 v4.21.0
 	github.com/gin-gonic/gin v1.12.0
+	google.golang.org/api v0.279.0
 	google.golang.org/genai v1.63.0
 	gorm.io/driver/mysql v1.6.0
 	gorm.io/gorm v1.31.2
@@ -87,7 +88,6 @@ require (
 	golang.org/x/sys v0.45.0 // indirect
 	golang.org/x/text v0.37.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
-	google.golang.org/api v0.279.0 // indirect
 	google.golang.org/appengine/v2 v2.0.6 // indirect
 	google.golang.org/genproto v0.0.0-20260511170946-3700d4141b60 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260511170946-3700d4141b60 // indirect

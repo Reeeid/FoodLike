@@ -1,11 +1,14 @@
-# デプロイ手順(案A: Vercel + Cloud Run + TiDB Serverless / 全部無料枠)
+# デプロイ手順(案B: Vercel + Render + TiDB Serverless / 全部無料枠・クレカ不要)
 
-構成は [architecture.md](architecture.md) の構成図①を参照。所要 約1〜1.5時間。
+構成は [architecture.md](architecture.md) の構成図①を参照。所要 約1時間。
+
+> 案A(Cloud Run)は Billing(クレカ)登録が必須のため、クレカ不要で常駐サーバーを
+> 動かせる **Render** に変更。バックエンドは `backend/Dockerfile` をそのまま使う。
 
 ## 事前準備
 
-- Googleアカウント(GCP)・GitHubアカウント・リポジトリをGitHubにpush済みであること
-- コード側の必要変更は **DSNのTLS対応の1点だけ**(手順1に記載)
+- Googleアカウント(Firebase)・GitHubアカウント・リポジトリをGitHubにpush済みであること
+- コード変更は不要(TiDBのTLS対応・Firebase認証のADC不要化はコミット済み)
 
 ---
 
@@ -15,56 +18,44 @@
 2. クラスタ作成後、「Connect」→ 接続情報を控える:
    - Host: `gateway01.ap-northeast-1.prod.aws.tidbcloud.com` 系
    - Port: `4000` / User: `xxxx.root` / Password: 生成したもの
-3. SQLエディタ(またはmysqlクライアント)で `CREATE DATABASE foodlike;`
-4. **コード変更(必須)**: TiDBはTLS必須なので、`backend/internal/infrastructure/db/mysql.go` のDSNをTLS対応にする:
+3. SQLエディタ(またはmysqlクライアント)で `CREATE DATABASE foodlike;`(既定の `test` DBを使うならスキップ可)
 
-```go
-dsn := fmt.Sprintf(
-    "%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
-    ...
-)
-if os.Getenv("DB_TLS") == "true" {
-    dsn += "&tls=true"
-}
-```
+補足: TiDBはTLS必須。`backend/internal/infrastructure/db/mysql.go` が `DB_TLS=true` のときDSNに `&tls=true` を付与する(コミット済み)。ローカルの docker compose は `DB_TLS` 未設定のまま動き、本番だけ `DB_TLS=true` を渡す。
 
-ローカルのdocker composeは`DB_TLS`未設定のまま動き、本番だけ`DB_TLS=true`を渡す。
+## 2. Render(バックエンド) 約20分
 
-## 2. Cloud Run(バックエンド) 約30分
+Firebaseの認証情報(サービスアカウント鍵)は**不要**。`firebaseauth.NewVerifier` が `option.WithoutAuthentication()` で初期化し、IDトークン検証はプロジェクトIDと公開鍵だけで完結する(コミット済み)。
 
-**重要: FirebaseプロジェクトfoodlikeauthをそのままGCPプロジェクトとして使う。** 同一プロジェクトならCloud Runのサービスアカウントで自動認証(ADC)されるため、`GOOGLE_APPLICATION_CREDENTIALS`もサービスアカウント鍵ファイルも不要。
+1. https://render.com にGitHubでサインアップ(**クレカ不要**)
+2. **New → Web Service** → FoodLikeリポジトリを接続
+3. 設定:
+   - **Root Directory**: `backend`
+   - **Runtime**: Docker(`backend/Dockerfile` を自動検出)
+   - **Dockerfile Path**: `./Dockerfile`(見つからない場合は `./backend/Dockerfile`)
+   - **Region**: Singapore(日本から最も近い無料リージョン)
+   - **Instance Type**: Free
+4. **Environment** に環境変数を設定(`PORT` は入れない=Renderが自動注入し `main.go` が読む):
 
-```powershell
-# gcloud CLI: https://cloud.google.com/sdk/docs/install
-gcloud auth login
-gcloud config set project foodlikeauth
-gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com
+   | キー | 値 |
+   |---|---|
+   | `FIREBASE_PROJECT_ID` | `foodlikeauth` |
+   | `GEMINI_API_KEY` | (取得したキー) |
+   | `GEMINI_MODEL` | `gemini-2.5-flash-lite` |
+   | `GEMINI_GROUNDING` | `false` |
+   | `TAVILY_API_KEY` | (取得したキー) |
+   | `HOTPEPPER_API_KEY` | (ホットペッパー検索を使う場合) |
+   | `DB_HOST` | `gateway01.ap-northeast-1.prod.aws.tidbcloud.com` |
+   | `DB_PORT` | `4000` |
+   | `DB_NAME` | `foodlike`(または `test`) |
+   | `DB_USER` | `xxxx.root` |
+   | `DB_PASSWORD` | (TiDBのパスワード) |
+   | `DB_TLS` | `true` |
+   | `FRONTEND_ORIGIN` | `https://<Vercelドメイン>`(**末尾スラッシュなし**) |
 
-# backend/ のDockerfileからビルド&デプロイ(ソースデプロイ)
-gcloud run deploy foodlike-backend `
-  --source backend `
-  --region asia-northeast1 `
-  --allow-unauthenticated `
-  --set-env-vars "FIREBASE_PROJECT_ID=foodlikeauth" `
-  --set-env-vars "DB_HOST=<TiDBのHost>,DB_PORT=4000,DB_NAME=foodlike,DB_USER=<User>,DB_TLS=true" `
-  --set-env-vars "FRONTEND_ORIGIN=https://<あとで決まるVercelドメイン>" `
-  --set-secrets "DB_PASSWORD=foodlike-db-password:latest"
-```
+5. Deploy → 発行URL(`https://foodlike-backend-xxxx.onrender.com`)を控える
+6. 動作確認: `curl https://<URL>/health`
 
-- DBパスワードはSecret Manager経由:
-  ```powershell
-  gcloud services enable secretmanager.googleapis.com
-  echo -n "<パスワード>" | gcloud secrets create foodlike-db-password --data-file=-
-  # Cloud Runのサービスアカウントに Secret Manager Secret Accessor を付与(初回デプロイ時に案内が出る)
-  ```
-- デプロイ完了で出るURL(`https://foodlike-backend-xxxx.a.run.app`)を控える
-- 動作確認: `curl https://<URL>/health`
-- `FRONTEND_ORIGIN`はVercelのドメイン確定後に更新:
-  ```powershell
-  gcloud run services update foodlike-backend --region asia-northeast1 --update-env-vars "FRONTEND_ORIGIN=https://foodlike.vercel.app"
-  ```
-
-補足: `PORT`はCloud Runが自動注入(main.goが読む)。コンテナは0台までスケールインするので無料枠に収まるが、初回アクセスにコールドスタート(数秒)がある。デモ直前に1回アクセスして温めておくと良い。
+補足: Render無料枠は **15分無操作でスリープ**し、次アクセスでコールドスタート(30〜50秒)。デモ直前に1回アクセスして温めておくと良い。`FRONTEND_ORIGIN` はVercelドメイン確定後に更新する(手順4)。
 
 ## 3. Vercel(フロントエンド) 約15分
 
@@ -74,7 +65,7 @@ gcloud run deploy foodlike-backend `
 
 | 変数 | 値 |
 |---|---|
-| `NEXT_PUBLIC_API_BASE_URL` | Cloud RunのURL |
+| `NEXT_PUBLIC_API_BASE_URL` | RenderのURL(手順2) |
 | `NEXT_PUBLIC_FIREBASE_API_KEY` | .env.localの値 |
 | `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | `foodlikeauth.firebaseapp.com` |
 | `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | `foodlikeauth` |
@@ -85,7 +76,7 @@ gcloud run deploy foodlike-backend `
 ## 4. 仕上げの相互設定 約10分
 
 1. **Firebaseコンソール** → Authentication → Settings → 承認済みドメイン に Vercelドメイン(`xxx.vercel.app`)を追加(これがないとGoogleログインのポップアップが拒否される)
-2. **Cloud Runの`FRONTEND_ORIGIN`** をVercelドメインに更新(手順2の最後のコマンド)
+2. **Renderの`FRONTEND_ORIGIN`** をVercelドメインに更新(Environment を編集して保存 → 自動で再デプロイ)
 3. 本番で一通り動作確認: ログイン → グループ作成 → QR招待(別端末で読み取り) → チャット → AI検索 → 提案
 
 ## トラブルシューティング
@@ -94,6 +85,8 @@ gcloud run deploy foodlike-backend `
 |---|---|
 | フロントからAPIがCORSエラー | `FRONTEND_ORIGIN`のスキーム/ドメイン不一致(https必須・末尾スラッシュなし) |
 | ログインポップアップが閉じる/エラー | Firebase承認済みドメイン未登録 |
-| 401 invalid token | Cloud Runのプロジェクトがfoodlikeauthでない(ADC不成立)。`gcloud config get project`確認 |
+| 401 invalid token | `FIREBASE_PROJECT_ID` がフロントのプロジェクトと不一致 |
+| 起動時にfirebase初期化エラー | 古いコードだとADCを要求する。`option.WithoutAuthentication()` 適用済みか確認 |
 | DB接続エラー | `DB_TLS=true`漏れ、またはTiDB側のパスワード/Host誤り |
-| AI検索が一気に出て流れない | プロキシのバッファリング。Cloud Run直なら発生しない(`X-Accel-Buffering: no`も送信済み) |
+| 初回アクセスが遅い | Render無料枠のコールドスタート(スリープ復帰)。デモ前に温める |
+| AI検索が一気に出て流れない | プロキシのバッファリング(`X-Accel-Buffering: no`送信済み)。通常Renderでは発生しない |

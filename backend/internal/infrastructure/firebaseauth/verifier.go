@@ -7,6 +7,7 @@ import (
 
 	firebase "firebase.google.com/go/v4"
 	"firebase.google.com/go/v4/auth"
+	"google.golang.org/api/option"
 
 	"foodlike-backend/internal/port/gateway"
 )
@@ -16,10 +17,11 @@ type Verifier struct {
 }
 
 // NewVerifier はIDトークン検証用のクライアントを初期化する。
-// 検証自体はGoogleの公開鍵で行うが、Go版Admin SDKはクライアント初期化時に
-// ADC(GOOGLE_APPLICATION_CREDENTIALS等)を要求する点に注意。
+// 検証自体はGoogleの公開鍵で行うため、option.WithoutAuthentication()を渡して
+// ADC(サービスアカウント鍵等)なしで初期化する。VerifyIDTokenはProjectIDと
+// 公開鍵だけで完結する(カスタムトークン発行はしないので認証情報は不要)。
 func NewVerifier(ctx context.Context, projectID string) (*Verifier, error) {
-	app, err := firebase.NewApp(ctx, &firebase.Config{ProjectID: projectID})
+	app, err := firebase.NewApp(ctx, &firebase.Config{ProjectID: projectID}, option.WithoutAuthentication())
 	if err != nil {
 		return nil, err
 	}
