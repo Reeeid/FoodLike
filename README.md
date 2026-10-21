@@ -94,7 +94,7 @@ cd frontend && npm run lint
 
 ## デプロイ
 
-Vercel（フロント）+ Cloud Run（バック）+ TiDB Serverless（DB）の無料枠構成。手順は [docs/deploy.md](docs/deploy.md)。
+Vercel（フロント）+ Render（バック）+ TiDB Serverless（DB）の無料枠構成。手順は [docs/deploy.md](docs/deploy.md)。
 
 ## API エンドポイント
 
