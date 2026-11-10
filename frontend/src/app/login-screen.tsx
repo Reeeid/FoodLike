@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 // Firebaseのエラーコードを利用者向けの日本語に変換する。
@@ -195,7 +196,9 @@ export function LoginScreen({
       </div>
 
       <p className="login-legal">
-        続行すると、利用規約・プライバシーポリシー・Cookieポリシーに同意したものとみなされます。
+        続行すると、<Link href="/terms">利用規約</Link>・
+        <Link href="/privacy">プライバシーポリシー</Link>・
+        <Link href="/cookies">Cookieポリシー</Link>に同意したものとみなされます。
       </p>
     </div>
   );

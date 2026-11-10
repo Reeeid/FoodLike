@@ -1,8 +1,10 @@
 package router
 
 import (
+	"fmt"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -22,7 +24,10 @@ type Handlers struct {
 // New はルーティングを組み立てる。認証方式(Firebase/モック)はmain側で
 // 決めてauthMiddlewareとして注入する。
 func New(db *gorm.DB, h Handlers, authMiddleware gin.HandlerFunc) *gin.Engine {
-	r := gin.Default()
+	// gin.Default()のロガーはURLのクエリ文字列までログに出す。利用者の入力
+	// (通信内容)がログに残らないよう、パスだけを記録するロガーに差し替える。
+	r := gin.New()
+	r.Use(gin.LoggerWithFormatter(pathOnlyLogFormatter), gin.Recovery())
 
 	// どのプロキシのX-Forwarded-Forも信頼しない。
 	// Cloud Runの前段はGoogleのフロントエンドで信頼するIPレンジを列挙できず、
@@ -54,10 +59,24 @@ func New(db *gorm.DB, h Handlers, authMiddleware gin.HandlerFunc) *gin.Engine {
 		authed.GET("/groups/:id/suggestions", h.Suggestion.Suggest)
 		authed.GET("/groups/:id/messages", h.Chat.List)
 		authed.POST("/groups/:id/messages", h.Chat.Post)
-		authed.GET("/groups/:id/ai-search", h.Chat.AISearch)
+		authed.POST("/groups/:id/ai-search", h.Chat.AISearch)
 	}
 
 	return r
+}
+
+// pathOnlyLogFormatter はGin既定に近い1行ログを、クエリ文字列を除いて出す。
+func pathOnlyLogFormatter(p gin.LogFormatterParams) string {
+	path, _, _ := strings.Cut(p.Path, "?")
+	return fmt.Sprintf("[GIN] %v | %3d | %13v | %15s | %-7s %s\n%s",
+		p.TimeStamp.Format("2006/01/02 - 15:04:05"),
+		p.StatusCode,
+		p.Latency,
+		p.ClientIP,
+		p.Method,
+		path,
+		p.ErrorMessage,
+	)
 }
 
 // corsMiddleware はフロントエンド(別オリジン)からのアクセスを許可する。

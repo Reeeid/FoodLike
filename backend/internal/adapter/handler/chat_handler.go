@@ -64,16 +64,26 @@ func (h *ChatHandler) Post(c *gin.Context) {
 	c.JSON(http.StatusCreated, toMessageResponse(m))
 }
 
-// AISearch GET /api/groups/:id/ai-search?q=... (SSE)
+type aiSearchRequest struct {
+	Q string `json:"q"`
+}
+
+// AISearch POST /api/groups/:id/ai-search {"q": "..."} (SSE)
 // イベント: chunk(回答テキスト断片) → done(保存済みメッセージ) / error。
-// EventSourceはAuthorizationヘッダーを積めないため、フロントはfetchのストリームで読む。
+// 質問文は通信内容そのものなので、アクセスログに残るURLクエリには載せずbodyで受ける。
+// EventSourceはPOSTもAuthorizationヘッダーも使えないため、フロントはfetchのストリームで読む。
 func (h *ChatHandler) AISearch(c *gin.Context) {
 	groupID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid group id"})
 		return
 	}
-	q := strings.TrimSpace(c.Query("q"))
+	var req aiSearchRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		return
+	}
+	q := strings.TrimSpace(req.Q)
 	if q == "" || len([]rune(q)) > 200 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "q must be 1-200 characters"})
 		return

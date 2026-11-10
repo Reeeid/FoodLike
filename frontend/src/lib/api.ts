@@ -94,17 +94,19 @@ export const api = {
       body: JSON.stringify({ text }),
     }),
 
-  // AI検索(SSE)。EventSourceは認証ヘッダーを積めないのでfetchのストリームで読む。
+  // AI検索(SSE)。EventSourceは認証ヘッダーもPOSTも使えないのでfetchのストリームで読む。
+  // 質問文はURLに載せずbodyで送る(サーバーのアクセスログに通信内容を残さないため)。
   // chunkイベントをonChunkに流し、doneで保存済みの(質問, 回答)を返す。
   aiSearch: async (
     groupId: number,
     q: string,
     onChunk: (text: string) => void,
   ): Promise<{ question: Message; answer: Message }> => {
-    const res = await fetch(
-      `${BASE_URL}/api/groups/${groupId}/ai-search?q=${encodeURIComponent(q)}`,
-      { headers: await authHeaders() },
-    );
+    const res = await fetch(`${BASE_URL}/api/groups/${groupId}/ai-search`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+      body: JSON.stringify({ q }),
+    });
     if (!res.ok || !res.body) {
       throw new Error(`AI検索に失敗しました (${res.status})`);
     }

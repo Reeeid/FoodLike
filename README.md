@@ -112,4 +112,4 @@ Vercel（フロント）+ Render（バック）+ TiDB Serverless（DB）の無�
 | GET      | `/api/search-options`         | エリア／予算マスタ                               |
 | GET      | `/api/groups/:id/suggestions` | 店舗提案（`middle_area`・`budget` で絞り込み可） |
 | GET/POST | `/api/groups/:id/messages`    | チャットメッセージ                               |
-| GET      | `/api/groups/:id/ai-search`   | AIチャット検索（SSEストリーミング）              |
+| POST     | `/api/groups/:id/ai-search`   | AIチャット検索（body `{"q"}`、SSEストリーミング） |

@@ -1,10 +1,17 @@
+import Link from "next/link";
+
 // 作者のGitHub(ポートフォリオ導線)
 const GITHUB_URL = "https://github.com/reeeid";
 
-// フッター。作者のGitHubへの導線(ポートフォリオ用)。
+// フッター。規約類へのリンクと作者のGitHubへの導線(ポートフォリオ用)。
 export function SiteFooter() {
   return (
     <footer className="site-footer">
+      <nav className="footer-legal" aria-label="規約とポリシー">
+        <Link href="/terms">利用規約</Link>
+        <Link href="/privacy">プライバシーポリシー</Link>
+        <Link href="/cookies">Cookieポリシー</Link>
+      </nav>
       <a
         href={GITHUB_URL}
         target="_blank"

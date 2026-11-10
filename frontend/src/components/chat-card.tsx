@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import Markdown from "react-markdown";
 import { api } from "@/lib/api";
 import { setLastRead } from "@/lib/unread";
@@ -106,6 +107,10 @@ export function ChatCard({
       <h2 className="card-title">💬 グループチャット</h2>
       <p className="section-note">
         お店の相談はここで。「AI検索」を押すと、みんなの苦手なものを踏まえたおすすめがチャットに流れます。
+      </p>
+      <p className="section-note chat-notice">
+        ※ AI検索の入力内容は、回答の生成のため外部サービス(Google Gemini・Tavily)に送信されます。個人情報は入力しないでください。詳しくは
+        <Link href="/privacy">プライバシーポリシー</Link>をご覧ください。
       </p>
 
       <div className="chat-log" ref={logRef}>

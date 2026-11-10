@@ -128,7 +128,7 @@ sequenceDiagram
     end
 
     Note over U,B: AI検索: SSEでストリーミング
-    U->>B: GET /groups/:id/ai-search?q=... (fetchストリーム)
+    U->>B: POST /groups/:id/ai-search {q} (fetchストリーム)
     B->>B: メンバーシップ検査
     B->>D: 質問を発言として保存
     B->>B: 好み集約→候補絞り込み(全員の苦手を考慮)

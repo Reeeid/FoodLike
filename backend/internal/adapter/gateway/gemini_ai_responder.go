@@ -93,7 +93,8 @@ func (g *GeminiResponder) Respond(ctx context.Context, query string, constraints
 	if g.searcher != nil {
 		found, err := g.searcher.Search(ctx, query+" レストラン おすすめ")
 		if err != nil {
-			log.Printf("web search error (query=%q): %v", query, err)
+			// 質問文は利用者の通信内容なのでログに出さない。
+			log.Printf("web search error: %v", err)
 		} else {
 			webResults = found
 		}

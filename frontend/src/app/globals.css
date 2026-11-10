@@ -188,6 +188,87 @@ a {
   color: var(--primary);
 }
 
+.footer-legal {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem 1rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.8rem;
+}
+
+.footer-legal a,
+.login-legal a,
+.chat-notice a {
+  color: var(--text-muted);
+  text-decoration: underline;
+}
+
+.footer-legal a:hover,
+.login-legal a:hover,
+.chat-notice a:hover {
+  color: var(--primary);
+}
+
+.chat-notice {
+  font-size: 0.75rem;
+}
+
+/* 規約・ポリシーページ */
+.legal h1 {
+  font-size: 1.35rem;
+  margin-bottom: 0.25rem;
+}
+
+.legal h2 {
+  font-size: 1rem;
+  margin: 1.5rem 0 0.5rem;
+}
+
+.legal p,
+.legal li {
+  font-size: 0.9rem;
+  line-height: 1.75;
+}
+
+.legal ul,
+.legal ol {
+  padding-left: 1.25rem;
+  margin: 0.25rem 0 0.5rem;
+}
+
+.legal table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  margin: 0.5rem 0;
+  display: block;
+  overflow-x: auto;
+}
+
+.legal th,
+.legal td {
+  border: 1px solid var(--border);
+  padding: 0.4rem 0.5rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.legal th {
+  background: var(--surface-alt);
+}
+
+.legal-meta {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin-bottom: 1rem;
+}
+
+.legal a {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
